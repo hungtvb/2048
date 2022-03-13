@@ -6,16 +6,85 @@ const gameBoard = document.getElementById("game-board");
 const grid = new Grid(gameBoard);
 grid.randomEmptyCell().title = new Title(gameBoard);
 grid.randomEmptyCell().title = new Title(gameBoard);
-console.log(grid.cellsByColumn);
+let xDown;                                                      
+let yDown;
 
 const setupInput = () => {
     window.addEventListener("keydown", handleInput, {once: true});
+
+    // mobile
+    xDown = null;
+    yDown = null;
+    document.addEventListener('touchstart', handleTouchStart, false);        
+    document.addEventListener('touchmove', handleTouchMove, false);
 }
 
+const getTouches = (evt) => {
+    return evt.touches ||             // browser API
+           evt.originalEvent.touches; // jQuery
+  }                                                     
+                                                                           
+const handleTouchStart = (evt) => {
+      const firstTouch = getTouches(evt)[0];                                      
+      xDown = firstTouch.clientX;                                      
+      yDown = firstTouch.clientY;                                      
+  };                                                
+                                                                           
+const handleTouchMove = async (evt) => {
+      if ( ! xDown || ! yDown ) {
+          return;
+      }
+  
+      var xUp = evt.touches[0].clientX;                                    
+      var yUp = evt.touches[0].clientY;
+  
+      var xDiff = xDown - xUp;
+      var yDiff = yDown - yUp;
+                                                                           
+      if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
+          if ( xDiff > 0 ) {
+            if(!canMoveLeft()){
+                setupInput();
+                return;
+            }
+            await moveLeft();
+          } else {
+            if(!canMoveRight()){
+                setupInput();
+                return;
+            }
+            await moveRight();
+          }                       
+      } else {
+          if ( yDiff > 0 ) {
+            if(!canMoveUp()){
+                setupInput();
+                return;
+            }
+            await moveUp();
+          } else { 
+            if(!canMoveDown()){
+                setupInput();
+                return;
+            }
+            await moveDown();
+          }                                                                 
+      }
+      
+    grid.cells.forEach(cell => cell.mergeTitles());
+    const title = new Title(gameBoard);
+    grid.randomEmptyCell().title = title;
+    if(!canMoveUp() && !canMoveDown() && !canMoveLeft() && !canMoveRight()){
+        title.waitForTransition(true).then(() => {
+            alert("Game over!!!");
+            window.location.reload();
+        })
+    }
+
+    setupInput();
+};
+
 const handleInput = async (e) => {
-
-    
-
     switch (e.key){
         case "ArrowUp":
             if(!canMoveUp()){
