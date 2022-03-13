@@ -38,4 +38,10 @@ export default class Title {
     remove() {
         this.#titleElement.remove();
     }
+
+    waitForTransition(animation = false) {
+        return new Promise(resolve => {
+            this.#titleElement.addEventListener(animation ? "animationend" : "transitionend", resolve, {once: true});
+        })
+    }
 }

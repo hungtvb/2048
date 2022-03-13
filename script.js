@@ -12,35 +12,55 @@ const setupInput = () => {
     window.addEventListener("keydown", handleInput, {once: true});
 }
 
-const handleInput = (e) => {
+const handleInput = async (e) => {
 
     
 
     switch (e.key){
         case "ArrowUp":
-            moveUp();
+            if(!canMoveUp()){
+                setupInput();
+                return;
+            }
+            await moveUp();
             break;
         case "ArrowDown":
-            moveDown();
+            if(!canMoveDown()){
+                setupInput();
+                return;
+            }
+            await moveDown();
             break;
         case "ArrowRight":
-            moveRight();
+            if(!canMoveRight()){
+                setupInput();
+                return;
+            }
+            await moveRight();
             break;
         case "ArrowLeft":
-            moveLeft();
+            if(!canMoveLeft()){
+                setupInput();
+                return;
+            }
+            await moveLeft();
             break;
         default:
             setupInput();
             return;
     }
-    setupInput();
     grid.cells.forEach(cell => cell.mergeTitles());
-    if(grid.checkGameOver()){
-        alert("Game over!!!");
-        window.location.reload();
-        return;
+    const title = new Title(gameBoard);
+    grid.randomEmptyCell().title = title;
+    if(!canMoveUp() && !canMoveDown() && !canMoveLeft() && !canMoveRight()){
+        title.waitForTransition(true).then(() => {
+            alert("Game over!!!");
+            window.location.reload();
+        })
     }
-    grid.randomEmptyCell().title = new Title(gameBoard);
+
+    setupInput();
+   
 }
 
 setupInput();
@@ -62,31 +82,64 @@ const moveLeft = () => {
 }
 
 const slideTitles = (cells) =>{
-    cells.forEach(group => {
-        for(let i = 1;i< group.length; i++){
-            const cell = group[i];
-            if(cell.title == null){
-                continue;
-            }
-
-            let lastValidCell;
-            for(let j = i-1; j>=0; j--){
-                const moveCell = group[j];
-                if(!moveCell.canAccept(cell.title)){
-                    break;
-                }
-                lastValidCell = moveCell;
-            }
-
-            if(lastValidCell != null){
-                if(lastValidCell.title != null){
-                    lastValidCell.mergeTitle = cell.title;
-                } else {
-                    lastValidCell.title = cell.title;
+    return Promise.all(
+        cells.flatMap(group => {
+            const promises = [];
+            for(let i = 1;i< group.length; i++){
+                const cell = group[i];
+                if(cell.title == null){
+                    continue;
                 }
 
-                cell.title = null;
+                let lastValidCell;
+                for(let j = i-1; j>=0; j--){
+                    const moveCell = group[j];
+                    if(!moveCell.canAccept(cell.title)){
+                        break;
+                    }
+                    lastValidCell = moveCell;
+                }
+
+                if(lastValidCell != null){
+                    promises.push(cell.title.waitForTransition());
+                    if(lastValidCell.title != null){
+                        lastValidCell.mergeTitle = cell.title;
+                    } else {
+                        lastValidCell.title = cell.title;
+                    }
+
+                    cell.title = null;
+                }
             }
-        }
-    })
+            return promises;
+    }))
 } 
+
+const canMoveUp = () => {
+    return canMove(grid.cellsByColumn);
+}
+
+const canMoveDown = () => {
+    return canMove(grid.cellsByColumn.map(col => [...col].reverse()));
+}
+
+const canMoveLeft = () => {
+    return canMove(grid.cellsByRow);
+}
+
+const canMoveRight = () => {
+    return canMove(grid.cellsByRow.map(row => [...row].reverse()))
+}
+
+const canMove = (cells) => {
+    return cells.some(group => {
+        return group.some((cell, index) => {
+            if(index == 0 || cell.title == null){
+                return false;
+            }
+
+            const moveToCell = group[index - 1];
+            return moveToCell.canAccept(cell.title);
+        })
+    })
+}
